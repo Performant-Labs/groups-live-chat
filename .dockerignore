@@ -2,7 +2,8 @@
 .ddev
 .env
 .env.example
-deploy/
+deploy/nginx-host-site.conf
+deploy/settings.php
 doc/
 node_modules/
 vendor/

@@ -20,11 +20,13 @@ A real-time group chat system built into Drupal 11.3, using the Matrix protocol 
 │  │           ChatController                  │   │
 │  │  panel()  → Render HTMX chat UI          │   │
 │  │  send()   → Save entity + relay to Matrix │   │
-│  │  messages()→ Load entities → HTML fragment │   │
+│  │  messages()→ Load entities → HTML Response│   │
+│  │  edit()   → Validate owner + update body  │   │
+│  │  delete() → Validate owner + soft-delete  │   │
 │  ├──────────────────────────────────────────┤   │
 │  │           SyncController                  │   │
-│  │  sync()   → Query chat_message WHERE      │   │
-│  │             id > since → JSON             │   │
+│  │  sync()   → Query new + mutated messages  │   │
+│  │             → JSON with type per message  │   │
 │  ├──────────────────────────────────────────┤   │
 │  │           MatrixBridgeHooks               │   │
 │  │  Group created  → ensureGroupRoles()      │   │
@@ -96,11 +98,16 @@ Conduit is only accessible within the Docker network (`conduit:6167`). No port i
 | Member added → joins room | ✅ | `entity_insert` hook → `inviteUser()` |
 | Member removed → kicked from room | ✅ | `entity_delete` hook → `kickUser()` |
 | Send message (browser) | ✅ | HTMX POST → `ChatController::send()` |
-| Receive messages (browser) | ✅ | JS long-poll → `SyncController::sync()` |
+| Receive messages (browser) | ✅ | JS short-poll → `SyncController::sync()` |
+| Edit own messages | ✅ | Hover menu → inline edit → PATCH → Matrix `m.replace` |
+| Delete own messages | ✅ | Hover menu → confirm → DELETE → soft-delete + Matrix redaction |
+| Mutation-aware sync | ✅ | Sync detects new, edited, and deleted messages via `changed` timestamp |
 | Message persistence | ✅ | `chat_message` entity in Drupal DB |
 | Author attribution | ✅ | Drupal session `$currentUser->id()` |
+| Ownership validation | ✅ | Only message author can edit/delete (403 for others) |
 | Dark-mode chat UI | ✅ | CSS with gradient bubbles, animations |
 | Auto-scroll on new messages | ✅ | Drupal behaviors JS |
+| Production deployment | ✅ | Docker Compose on Spiderman, SSL via host nginx |
 
 ---
 
@@ -112,7 +119,6 @@ Conduit is only accessible within the Docker network (`conduit:6167`). No port i
 | Read receipts | ❌ | Same — needs persistent connection |
 | Presence (online/offline) | ❌ | Same |
 | Bidirectional Matrix sync | ❌ | Webhook receives events but doesn't ingest them |
-| Message editing/deletion | ❌ | Not implemented |
 | File/image attachments | ❌ | Not implemented |
 | End-to-end encryption | ❌ | Conduit supports it, but unnecessary for internal transport |
 
@@ -213,12 +219,9 @@ This is straightforward (~50 lines of code) but only useful if external Matrix c
 3. Render as `<img>` or download link in the message bubble
 4. Would need HTMX multipart form support or a separate upload endpoint
 
-### Message Editing/Deletion
+### Message Editing/Deletion ✅ (Implemented in Phase 7)
 
-1. Add `PUT /group/{id}/chat/message/{msg_id}` and `DELETE` routes
-2. Send Matrix `m.room.message` with `m.relates_to.rel_type: "m.replace"` for edits
-3. Update/soft-delete the `ChatMessage` entity
-4. Sync endpoint already handles incremental updates
+See current implementation in `ChatController::edit()` and `ChatController::delete()`.
 
 ---
 
@@ -228,36 +231,46 @@ This is straightforward (~50 lines of code) but only useful if external Matrix c
 web/modules/custom/matrix_bridge/
 ├── matrix_bridge.info.yml              # Module definition
 ├── matrix_bridge.services.yml          # MatrixClient service + autowire alias
-├── matrix_bridge.routing.yml           # All routes (webhook, panel, messages, send, sync)
+├── matrix_bridge.routing.yml           # Routes: webhook, panel, messages, send, sync, edit, delete
 ├── matrix_bridge.libraries.yml         # CSS + JS library definition
 ├── matrix_bridge.module                # hook_theme() for templates
+├── matrix_bridge.install               # Update hooks (10001: add changed + deleted fields)
 ├── config/install/
 │   └── matrix_bridge.settings.yml      # as_token, hs_token, homeserver_url
 ├── src/
-│   ├── MatrixClient.php                # Guzzle wrapper, appservice masquerading
-│   ├── Entity/ChatMessage.php          # Content entity (uid, group_id, body, matrix_event_id)
+│   ├── MatrixClient.php                # Guzzle wrapper: send, edit (m.replace), redact, masquerade
+│   ├── Entity/ChatMessage.php          # Content entity (uid, group_id, body, changed, deleted)
 │   ├── Controller/
-│   │   ├── ChatController.php          # panel(), messages(), send()
-│   │   ├── SyncController.php          # sync() — DB-based long-poll
+│   │   ├── ChatController.php          # panel(), messages(), send(), edit(), delete()
+│   │   ├── SyncController.php          # sync() — mutation-aware DB polling
 │   │   └── AppserviceController.php    # Webhook (hs_token auth, no-op body)
 │   └── Hook/
 │       └── MatrixBridgeHooks.php       # Group lifecycle → Matrix room + role operations
-├── css/chat.css                        # Dark-mode chat UI
-├── js/chat.js                          # Long-poll sync + auto-scroll
+├── css/chat.css                        # Dark-mode chat UI + edit/delete UI
+├── js/chat.js                          # Short-poll sync + hover menu + inline edit
 ├── templates/
 │   ├── matrix-chat-panel.html.twig     # Full chat panel with HTMX attributes
-│   └── matrix-chat-messages.html.twig  # Message bubbles fragment
+│   └── matrix-chat-messages.html.twig  # Message bubbles (with data-message-id, deleted/edited)
 └── tests/
     ├── full_e2e_test.php               # 19-test comprehensive suite
     ├── multi_user_test.php             # Multi-user conversation proof
     ├── test_auto_role.php              # Auto role creation + assignment test
     └── phase3_test.php                 # Group lifecycle hook tests
 
-.ddev/
+.ddev/                                  # Local development
 ├── docker-compose.conduit.yaml         # Conduit sidecar definition
 └── conduit/
     ├── conduit.toml                    # Homeserver config
     └── appservice-drupal.yaml          # Appservice registration
+
+deploy/                                 # Production (Spiderman)
+├── entrypoint.sh                       # Generates settings.php from env vars, starts FPM + nginx
+├── nginx-drupal.conf                   # Container-internal nginx config
+└── settings.php                        # Template (used by docker cp as fallback)
+
+Dockerfile                              # drupal:11-php8.3-fpm-alpine + nginx
+docker-compose.yml                      # web, db (MariaDB), conduit services
+.dockerignore
 ```
 
 ---
@@ -268,11 +281,16 @@ web/modules/custom/matrix_bridge/
 
 | Method | Path | Returns | Purpose |
 |---|---|---|---|
-| `GET` | `/group/{id}/chat` | HTML page | Full chat panel |
-| `GET` | `/group/{id}/chat/messages` | HTML fragment | Message list (HTMX) |
-| `POST` | `/group/{id}/chat/send` | HTML fragment | Send + return updated list |
-| `GET` | `/group/{id}/chat/sync?since={id}` | JSON | Incremental new messages |
+| `GET` | `/group/{id}/chat` | HTML page | Full chat panel (render array) |
+| `GET` | `/group/{id}/chat/messages` | HTML Response | Message list fragment (bare HTML, not wrapped in page layout) |
+| `POST` | `/group/{id}/chat/send` | HTML Response | Send + return updated message list |
+| `GET` | `/group/{id}/chat/sync?since={id}&since_ts={ts}` | JSON | New + mutated messages |
+| `PATCH` | `/group/{id}/chat/message/{msg_id}/edit` | JSON | Edit message body (owner only) |
+| `DELETE` | `/group/{id}/chat/message/{msg_id}/delete` | JSON | Soft-delete message (owner only) |
 | `PUT` | `/matrix/appservice/transactions/{txnId}` | JSON `{}` | Matrix webhook (no-op) |
+
+> [!IMPORTANT]
+> The `messages` and `send` endpoints return **bare `Response` objects**, not Drupal render arrays. This prevents Drupal from wrapping the fragment in the full page layout (html, head, toolbar, etc.) which would break HTMX's `innerHTML` swap.
 
 ### Sync JSON Schema
 
@@ -280,16 +298,58 @@ web/modules/custom/matrix_bridge/
 {
   "messages": [
     {
+      "id": 15,
+      "type": "new|edited|deleted",
       "author": "string",
       "body": "string",
       "time": "HH:MM",
-      "is_own": true
+      "is_own": true,
+      "edited": false
     }
   ],
   "last_id": 42,
+  "sync_ts": 1711468800,
   "has_new": true
 }
 ```
+
+The `since_ts` parameter enables mutation detection: the sync query finds messages where `changed > since_ts AND id <= since_id`, catching edits and deletes to previously-seen messages.
+
+---
+
+## Production Deployment (Spiderman)
+
+```
+┌──────────────────────────────────────────────────────┐
+│  Spiderman (172.232.174.154)                         │
+│                                                      │
+│  ┌──────────────────────────────┐                    │
+│  │  Host nginx (port 443)      │                    │
+│  │  SSL via Certbot            │                    │
+│  │  chat.performantlabs.com    │                    │
+│  └──────────┬───────────────────┘                    │
+│             │ proxy_pass :8083                       │
+│  ┌──────────▼───────────────────────────────────┐   │
+│  │  Docker Compose stack                         │   │
+│  │  ┌─────────────────┐  ┌────────────────────┐ │   │
+│  │  │ web (port 8083) │  │ conduit (6167)     │ │   │
+│  │  │ nginx + PHP-FPM │  │ Matrix homeserver  │ │   │
+│  │  │ Drupal 11       │  │ Internal only      │ │   │
+│  │  └────────┬────────┘  └────────────────────┘ │   │
+│  │           │                                   │   │
+│  │  ┌────────▼────────┐                          │   │
+│  │  │ db (MariaDB)    │                          │   │
+│  │  │ groups_chat DB  │                          │   │
+│  │  └─────────────────┘                          │   │
+│  └───────────────────────────────────────────────┘   │
+└──────────────────────────────────────────────────────┘
+```
+
+**Key design decisions:**
+- The entrypoint generates `settings.php` from environment variables on every container start (solves `COPY web/` wiping the file on rebuilds)
+- Host nginx manages SSL and reverse-proxies to the container's port 8083
+- Conduit is only accessible within the Docker network — no external port
+- DB data persists in a Docker volume across rebuilds
 
 ---
 

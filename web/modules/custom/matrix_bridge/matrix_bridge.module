@@ -1,0 +1,26 @@
+<?php
+
+/**
+ * @file
+ * Chat panel hook_theme implementation.
+ */
+
+/**
+ * Implements hook_theme().
+ */
+function matrix_bridge_theme($existing, $type, $theme, $path) {
+  return [
+    'matrix_chat_panel' => [
+      'variables' => [
+        'group_id' => NULL,
+        'room_id' => NULL,
+        'current_user' => NULL,
+      ],
+    ],
+    'matrix_chat_messages' => [
+      'variables' => [
+        'messages' => [],
+      ],
+    ],
+  ];
+}

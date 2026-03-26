@@ -1,0 +1,10 @@
+chat:
+  version: VERSION
+  css:
+    theme:
+      css/chat.css: {}
+  js:
+    js/chat.js: {}
+  dependencies:
+    - core/drupal.htmx
+    - core/drupalSettings

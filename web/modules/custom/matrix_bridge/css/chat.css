@@ -1,0 +1,197 @@
+/**
+ * @file
+ * Chat UI styles — modern, dark-mode ready chat bubbles.
+ */
+
+.matrix-chat {
+  display: flex;
+  flex-direction: column;
+  max-width: 600px;
+  height: 500px;
+  border: 1px solid #333;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #1a1a2e;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: #e0e0e0;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+/* Header */
+.matrix-chat__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #16213e, #0f3460);
+  border-bottom: 1px solid #333;
+}
+
+.matrix-chat__title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+.matrix-chat__status {
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 500;
+}
+
+.matrix-chat__status--connected {
+  background: rgba(0, 255, 136, 0.15);
+  color: #00ff88;
+}
+
+.matrix-chat__status--disconnected {
+  background: rgba(255, 100, 100, 0.15);
+  color: #ff6464;
+}
+
+/* Messages area */
+.matrix-chat__messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  scroll-behavior: smooth;
+}
+
+.matrix-chat__messages::-webkit-scrollbar {
+  width: 6px;
+}
+
+.matrix-chat__messages::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.matrix-chat__messages::-webkit-scrollbar-thumb {
+  background: #444;
+  border-radius: 3px;
+}
+
+.matrix-chat__loading,
+.matrix-chat__empty {
+  text-align: center;
+  color: #888;
+  font-size: 0.875rem;
+  padding: 40px 0;
+}
+
+/* Message bubbles */
+.matrix-chat__message {
+  display: flex;
+  justify-content: flex-start;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.matrix-chat__message--own {
+  justify-content: flex-end;
+}
+
+.matrix-chat__bubble {
+  max-width: 75%;
+  padding: 8px 14px;
+  border-radius: 16px;
+  background: #2a2a4a;
+  position: relative;
+  line-height: 1.4;
+}
+
+.matrix-chat__message--own .matrix-chat__bubble {
+  background: linear-gradient(135deg, #533483, #0f3460);
+  border-bottom-right-radius: 4px;
+}
+
+.matrix-chat__message:not(.matrix-chat__message--own) .matrix-chat__bubble {
+  border-bottom-left-radius: 4px;
+}
+
+.matrix-chat__author {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #7b68ee;
+  margin-bottom: 2px;
+}
+
+.matrix-chat__body {
+  font-size: 0.875rem;
+  word-break: break-word;
+}
+
+.matrix-chat__time {
+  display: block;
+  font-size: 0.65rem;
+  color: rgba(255, 255, 255, 0.4);
+  text-align: right;
+  margin-top: 4px;
+}
+
+/* Input form */
+.matrix-chat__form {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  background: #16213e;
+  border-top: 1px solid #333;
+}
+
+.matrix-chat__input {
+  flex: 1;
+  padding: 10px 16px;
+  border: 1px solid #444;
+  border-radius: 24px;
+  background: #1a1a2e;
+  color: #e0e0e0;
+  font-size: 0.875rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.matrix-chat__input:focus {
+  border-color: #7b68ee;
+  box-shadow: 0 0 0 2px rgba(123, 104, 238, 0.2);
+}
+
+.matrix-chat__input::placeholder {
+  color: #666;
+}
+
+.matrix-chat__send {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 24px;
+  background: linear-gradient(135deg, #533483, #7b68ee);
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: transform 0.1s, box-shadow 0.2s;
+}
+
+.matrix-chat__send:hover {
+  transform: scale(1.02);
+  box-shadow: 0 4px 16px rgba(123, 104, 238, 0.3);
+}
+
+.matrix-chat__send:active {
+  transform: scale(0.98);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

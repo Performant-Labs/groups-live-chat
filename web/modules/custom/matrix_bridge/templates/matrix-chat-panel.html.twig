@@ -1,0 +1,45 @@
+{#
+/**
+ * @file
+ * Chat panel template — the full HTMX chat UI for a group.
+ *
+ * Variables:
+ *  - group_id: The Drupal group ID.
+ *  - room_id: The Matrix room ID (or null).
+ *  - current_user: Display name of the current user.
+ */
+#}
+<div class="matrix-chat" id="matrix-chat-{{ group_id }}" data-group-id="{{ group_id }}">
+
+  <div class="matrix-chat__header">
+    <h3 class="matrix-chat__title">💬 Group Chat</h3>
+    {% if room_id %}
+      <span class="matrix-chat__status matrix-chat__status--connected">Connected</span>
+    {% else %}
+      <span class="matrix-chat__status matrix-chat__status--disconnected">No Room</span>
+    {% endif %}
+  </div>
+
+  <div class="matrix-chat__messages"
+       id="matrix-chat-messages-{{ group_id }}"
+       hx-get="{{ path('matrix_bridge.chat_messages', {'group_id': group_id}) }}"
+       hx-trigger="load, every 5s"
+       hx-swap="innerHTML">
+    <div class="matrix-chat__loading">Loading messages…</div>
+  </div>
+
+  <form class="matrix-chat__form"
+        hx-post="{{ path('matrix_bridge.chat_send', {'group_id': group_id}) }}"
+        hx-target="#matrix-chat-messages-{{ group_id }}"
+        hx-swap="innerHTML scroll:#matrix-chat-messages-{{ group_id }}:bottom"
+        hx-on::after-request="this.reset()">
+    <input type="text"
+           name="message"
+           class="matrix-chat__input"
+           placeholder="Type a message…"
+           autocomplete="off"
+           required />
+    <button type="submit" class="matrix-chat__send">Send</button>
+  </form>
+
+</div>

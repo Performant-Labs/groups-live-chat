@@ -247,8 +247,58 @@ web/modules/custom/matrix_bridge/
 └── tests/phase3_test.php                  [NEW]
 ```
 
+## Phase 4 — HTMX Chat UI
+
+### What Was Done
+
+1. **ChatController** (`src/Controller/ChatController.php`) — 3 endpoints:
+   - `panel()` — Render array with full chat UI (attaches HTMX + custom CSS/JS)
+   - `messages()` — HTMX fragment returning message list (cached with max-age=0)
+   - `send()` — POST handler: saves ChatMessage + sends to Matrix, returns updated fragment
+2. **Routes** — 3 new routes added to `matrix_bridge.routing.yml`:
+   - `GET /group/{id}/chat` — full panel
+   - `GET /group/{id}/chat/messages` — message fragment (hx-get target)
+   - `POST /group/{id}/chat/send` — message submission (hx-post target)
+3. **Templates**:
+   - `matrix-chat-panel.html.twig` — HTMX attributes: `hx-get` polling (5s), `hx-post` form, auto-reset
+   - `matrix-chat-messages.html.twig` — message bubbles with own/other styling
+4. **CSS** (`css/chat.css`) — dark-mode, gradient bubbles, smooth animations
+5. **JS** (`js/chat.js`) — auto-scroll via Drupal behaviors
+6. **Library** (`matrix_bridge.libraries.yml`) — depends on `core/drupal.htmx`
+
+### Phase 4 Tests
+
+| Test | Result |
+|---|---|
+| Chat panel renders (200) | ✅ |
+| Messages fragment renders (200) | ✅ |
+| Message input + Send button visible | ✅ Browser screenshot |
+| HTMX form submission | ✅ "Hello from browser!" saved (id=3) |
+| Message sent to Matrix | ✅ |
+| Dark-mode UI styling | ✅ |
+
+### Lesson 13: Missing `<?php` Tag in `.module` File
+
+> [!CAUTION]
+> When creating a `.module` file, the `<?php` opening tag MUST be present. Without it, the entire file contents are output as plain text on every Drupal page load, breaking all theme hooks.
+
+### Phase 4 File Inventory (additions)
+
+```
+web/modules/custom/matrix_bridge/
+├── matrix_bridge.module             [NEW]
+├── matrix_bridge.libraries.yml      [NEW]
+├── css/chat.css                     [NEW]
+├── js/chat.js                       [NEW]
+├── templates/
+│   ├── matrix-chat-panel.html.twig  [NEW]
+│   └── matrix-chat-messages.html.twig [NEW]
+└── src/Controller/ChatController.php [NEW]
+```
+
 ---
 
-## Next Steps — Phase 4
+## Next Steps — Phase 5
 
-HTMX Chat UI: ChatController, routes, Twig templates for the chat panel.
+Browser real-time integration via matrix-js-sdk WebSocket connection.
+

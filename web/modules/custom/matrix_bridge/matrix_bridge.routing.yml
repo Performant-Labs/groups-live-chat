@@ -7,3 +7,33 @@ matrix_bridge.appservice_transactions:
   requirements:
     _custom_access: '\Drupal\matrix_bridge\Controller\AppserviceController::access'
     txnId: '.+'
+
+# Chat panel: full page with HTMX chat UI for a group.
+matrix_bridge.chat_panel:
+  path: '/group/{group_id}/chat'
+  defaults:
+    _controller: '\Drupal\matrix_bridge\Controller\ChatController::panel'
+    _title: 'Group Chat'
+  requirements:
+    _permission: 'access content'
+    group_id: '\d+'
+
+# Messages fragment: HTMX partial for the message list.
+matrix_bridge.chat_messages:
+  path: '/group/{group_id}/chat/messages'
+  defaults:
+    _controller: '\Drupal\matrix_bridge\Controller\ChatController::messages'
+  requirements:
+    _permission: 'access content'
+    group_id: '\d+'
+
+# Send message: HTMX POST handler.
+matrix_bridge.chat_send:
+  path: '/group/{group_id}/chat/send'
+  defaults:
+    _controller: '\Drupal\matrix_bridge\Controller\ChatController::send'
+  methods: [POST]
+  requirements:
+    _permission: 'access content'
+    group_id: '\d+'
+

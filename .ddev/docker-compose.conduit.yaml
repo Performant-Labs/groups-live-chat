@@ -1,0 +1,20 @@
+# Conduit Matrix homeserver sidecar for DDEV.
+# Provides real-time messaging transport for matrix_bridge module.
+services:
+  conduit:
+    image: matrixconduit/matrix-conduit:latest
+    container_name: ddev-${DDEV_SITENAME}-conduit
+    restart: "no"
+    environment:
+      CONDUIT_CONFIG: /etc/conduit/conduit.toml
+    volumes:
+      - conduit-data:/var/lib/matrix-conduit
+      - ./conduit:/etc/conduit:ro
+    expose:
+      - "6167"
+    labels:
+      com.ddev.site-name: ${DDEV_SITENAME}
+      com.ddev.approot: $DDEV_APPROOT
+
+volumes:
+  conduit-data:

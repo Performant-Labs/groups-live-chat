@@ -195,3 +195,122 @@
     transform: translateY(0);
   }
 }
+
+/* === Edit / Delete UI === */
+
+/* Action buttons — visible on hover */
+.matrix-chat__message {
+  position: relative;
+}
+
+.matrix-chat__actions {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 1;
+}
+
+.matrix-chat__message:hover .matrix-chat__actions {
+  opacity: 1;
+}
+
+.matrix-chat__action-btn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 50%;
+  background: #2a2a4a;
+  cursor: pointer;
+  font-size: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+  padding: 0;
+  line-height: 1;
+}
+
+.matrix-chat__action-btn:hover {
+  background: #3a3a5a;
+}
+
+.matrix-chat__action-delete:hover {
+  background: rgba(255, 80, 80, 0.3);
+}
+
+/* Edited indicator */
+.matrix-chat__edited {
+  display: inline;
+  font-size: 0.65rem;
+  color: rgba(255, 255, 255, 0.35);
+  font-style: italic;
+  margin-left: 6px;
+}
+
+/* Deleted message */
+.matrix-chat__message--deleted .matrix-chat__bubble {
+  background: transparent;
+  border: 1px dashed #444;
+}
+
+.matrix-chat__deleted-text {
+  font-size: 0.8rem;
+  color: #666;
+  font-style: italic;
+}
+
+/* Inline edit form */
+.matrix-chat__edit-form {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+  align-items: center;
+}
+
+.matrix-chat__edit-input {
+  flex: 1;
+  padding: 4px 10px;
+  border: 1px solid #7b68ee;
+  border-radius: 12px;
+  background: #1a1a2e;
+  color: #e0e0e0;
+  font-size: 0.8rem;
+  outline: none;
+}
+
+.matrix-chat__edit-save,
+.matrix-chat__edit-cancel {
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 0.7rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 1;
+}
+
+.matrix-chat__edit-save {
+  background: rgba(0, 255, 136, 0.2);
+  color: #00ff88;
+}
+
+.matrix-chat__edit-save:hover {
+  background: rgba(0, 255, 136, 0.35);
+}
+
+.matrix-chat__edit-cancel {
+  background: rgba(255, 80, 80, 0.2);
+  color: #ff6464;
+}
+
+.matrix-chat__edit-cancel:hover {
+  background: rgba(255, 80, 80, 0.35);
+}

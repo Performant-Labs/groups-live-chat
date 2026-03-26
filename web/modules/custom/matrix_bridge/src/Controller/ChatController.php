@@ -93,11 +93,16 @@ class ChatController extends ControllerBase {
     $items = [];
     foreach ($messages as $message) {
       $author = $message->get('uid')->entity;
+      $isDeleted = $message->isDeleted();
+      $isEdited = $message->get('changed')->value > $message->get('created')->value;
       $items[] = [
+        'id' => (int) $message->id(),
         'author' => $author ? $author->getDisplayName() : 'Unknown',
-        'body' => $message->getBody(),
+        'body' => $isDeleted ? '' : $message->getBody(),
         'time' => date('H:i', (int) $message->get('created')->value),
         'is_own' => $author && $author->id() == $this->currentUser()->id(),
+        'deleted' => $isDeleted,
+        'edited' => $isEdited,
       ];
     }
 
@@ -162,6 +167,113 @@ class ChatController extends ControllerBase {
     $message->save();
 
     return $this->messages($group_id);
+  }
+
+  /**
+   * Handles message editing via PATCH.
+   *
+   * Validates ownership, updates the message body, and sends a Matrix
+   * m.replace event.
+   *
+   * @param int $group_id
+   *   The Drupal group ID.
+   * @param int $message_id
+   *   The chat_message entity ID.
+   * @param \Symfony\Component\HttpFoundation\Request $request
+   *   The request containing the new body (JSON).
+   *
+   * @return \Symfony\Component\HttpFoundation\JsonResponse
+   *   JSON response.
+   */
+  public function edit(int $group_id, int $message_id, Request $request): Response {
+    $message = $this->entityTypeManager()
+      ->getStorage('chat_message')
+      ->load($message_id);
+
+    if (!$message || $message->getGroupId() !== $group_id) {
+      return new Response(json_encode(['error' => 'Message not found']), 404, ['Content-Type' => 'application/json']);
+    }
+
+    if ($message->getAuthorId() !== (int) $this->currentUser()->id()) {
+      return new Response(json_encode(['error' => 'Forbidden']), 403, ['Content-Type' => 'application/json']);
+    }
+
+    if ($message->isDeleted()) {
+      return new Response(json_encode(['error' => 'Cannot edit deleted message']), 400, ['Content-Type' => 'application/json']);
+    }
+
+    $data = json_decode($request->getContent(), TRUE);
+    $newBody = trim($data['body'] ?? '');
+    if (empty($newBody)) {
+      return new Response(json_encode(['error' => 'Body cannot be empty']), 400, ['Content-Type' => 'application/json']);
+    }
+
+    // Send Matrix edit event (m.replace).
+    $roomId = $this->matrixClient->getRoomId($group_id);
+    $originalEventId = $message->getMatrixEventId();
+    if ($roomId && $originalEventId) {
+      try {
+        $matrixUserId = $this->matrixClient->ensureUserExists((int) $this->currentUser()->id());
+        $this->matrixClient->sendEdit($roomId, $matrixUserId, $originalEventId, $newBody);
+      }
+      catch (\Exception $e) {
+        $this->getLogger('matrix_bridge')->error('Failed to send edit to Matrix: @error', [
+          '@error' => $e->getMessage(),
+        ]);
+      }
+    }
+
+    $message->set('body', $newBody);
+    $message->save();
+
+    return new Response(json_encode(['ok' => TRUE, 'body' => $newBody]), 200, ['Content-Type' => 'application/json']);
+  }
+
+  /**
+   * Handles message deletion via DELETE.
+   *
+   * Validates ownership, soft-deletes the message, and sends a Matrix
+   * redaction event.
+   *
+   * @param int $group_id
+   *   The Drupal group ID.
+   * @param int $message_id
+   *   The chat_message entity ID.
+   *
+   * @return \Symfony\Component\HttpFoundation\JsonResponse
+   *   JSON response.
+   */
+  public function delete(int $group_id, int $message_id): Response {
+    $message = $this->entityTypeManager()
+      ->getStorage('chat_message')
+      ->load($message_id);
+
+    if (!$message || $message->getGroupId() !== $group_id) {
+      return new Response(json_encode(['error' => 'Message not found']), 404, ['Content-Type' => 'application/json']);
+    }
+
+    if ($message->getAuthorId() !== (int) $this->currentUser()->id()) {
+      return new Response(json_encode(['error' => 'Forbidden']), 403, ['Content-Type' => 'application/json']);
+    }
+
+    // Send Matrix redaction.
+    $roomId = $this->matrixClient->getRoomId($group_id);
+    $eventId = $message->getMatrixEventId();
+    if ($roomId && $eventId) {
+      try {
+        $matrixUserId = $this->matrixClient->ensureUserExists((int) $this->currentUser()->id());
+        $this->matrixClient->redactEvent($roomId, $matrixUserId, $eventId);
+      }
+      catch (\Exception $e) {
+        $this->getLogger('matrix_bridge')->error('Failed to redact on Matrix: @error', [
+          '@error' => $e->getMessage(),
+        ]);
+      }
+    }
+
+    $message->markDeleted()->save();
+
+    return new Response(json_encode(['ok' => TRUE]), 200, ['Content-Type' => 'application/json']);
   }
 
 }

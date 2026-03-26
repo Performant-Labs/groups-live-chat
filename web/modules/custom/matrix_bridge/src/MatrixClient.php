@@ -190,6 +190,63 @@ class MatrixClient {
   }
 
   /**
+   * Sends a message edit (m.replace) to a Matrix room.
+   *
+   * @param string $roomId
+   *   The Matrix room ID.
+   * @param string $userId
+   *   The fully-qualified Matrix user ID to masquerade as.
+   * @param string $originalEventId
+   *   The event ID of the original message being edited.
+   * @param string $newBody
+   *   The new message body text.
+   *
+   * @return string
+   *   The Matrix event ID of the edit event.
+   */
+  public function sendEdit(string $roomId, string $userId, string $originalEventId, string $newBody): string {
+    $txnId = 'drupal_edit_' . bin2hex(random_bytes(8));
+    $response = $this->request(
+      'PUT',
+      "/_matrix/client/v3/rooms/{$this->encodeRoomId($roomId)}/send/m.room.message/{$txnId}",
+      [
+        'msgtype' => 'm.text',
+        'body' => '* ' . $newBody,
+        'm.new_content' => [
+          'msgtype' => 'm.text',
+          'body' => $newBody,
+        ],
+        'm.relates_to' => [
+          'rel_type' => 'm.replace',
+          'event_id' => $originalEventId,
+        ],
+      ],
+      $userId,
+    );
+    return $response['event_id'] ?? '';
+  }
+
+  /**
+   * Redacts (deletes) an event in a Matrix room.
+   *
+   * @param string $roomId
+   *   The Matrix room ID.
+   * @param string $userId
+   *   The fully-qualified Matrix user ID to masquerade as.
+   * @param string $eventId
+   *   The event ID to redact.
+   */
+  public function redactEvent(string $roomId, string $userId, string $eventId): void {
+    $txnId = 'drupal_redact_' . bin2hex(random_bytes(8));
+    $this->request(
+      'PUT',
+      "/_matrix/client/v3/rooms/{$this->encodeRoomId($roomId)}/redact/{$this->encodeRoomId($eventId)}/{$txnId}",
+      ['reason' => 'Deleted by user'],
+      $userId,
+    );
+  }
+
+  /**
    * Ensures a Drupal user has a corresponding Matrix user registered.
    *
    * Uses appservice registration (type: m.login.application_service) to create

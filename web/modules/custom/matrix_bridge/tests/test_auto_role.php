@@ -7,7 +7,7 @@
 
 echo "=== Full Auto-Role E2E Test ===\n\n";
 
-// Clean up previous test artefacts.
+// Delete any previous test roles to test fresh creation.
 $roleStorage = \Drupal::entityTypeManager()->getStorage('group_role');
 foreach (['test_e2e-member', 'test_e2e-admin', 'test_e2e-outsider'] as $rid) {
   $r = $roleStorage->load($rid);

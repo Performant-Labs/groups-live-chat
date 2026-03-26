@@ -69,6 +69,15 @@ class ChatMessage extends ContentEntityBase implements ContentEntityInterface {
       ->setLabel(t('Created'))
       ->setDescription(t('The time the message was sent.'));
 
+    $fields['changed'] = BaseFieldDefinition::create('changed')
+      ->setLabel(t('Changed'))
+      ->setDescription(t('The time the message was last updated.'));
+
+    $fields['deleted'] = BaseFieldDefinition::create('boolean')
+      ->setLabel(t('Deleted'))
+      ->setDescription(t('Whether this message has been soft-deleted.'))
+      ->setDefaultValue(FALSE);
+
     return $fields;
   }
 
@@ -105,6 +114,21 @@ class ChatMessage extends ContentEntityBase implements ContentEntityInterface {
    */
   public function getAuthorId(): int {
     return (int) $this->get('uid')->target_id;
+  }
+
+  /**
+   * Whether this message has been soft-deleted.
+   */
+  public function isDeleted(): bool {
+    return (bool) $this->get('deleted')->value;
+  }
+
+  /**
+   * Soft-delete this message.
+   */
+  public function markDeleted(): self {
+    $this->set('deleted', TRUE);
+    return $this;
   }
 
 }

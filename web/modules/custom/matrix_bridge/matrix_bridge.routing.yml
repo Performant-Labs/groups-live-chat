@@ -45,3 +45,25 @@ matrix_bridge.chat_sync:
   requirements:
     _permission: 'access content'
     group_id: '\d+'
+
+# Edit message: PATCH handler for updating a message body.
+matrix_bridge.chat_edit:
+  path: '/group/{group_id}/chat/message/{message_id}/edit'
+  defaults:
+    _controller: '\Drupal\matrix_bridge\Controller\ChatController::edit'
+  methods: [PATCH]
+  requirements:
+    _permission: 'access content'
+    group_id: '\d+'
+    message_id: '\d+'
+
+# Delete message: DELETE handler for soft-deleting a message.
+matrix_bridge.chat_delete:
+  path: '/group/{group_id}/chat/message/{message_id}/delete'
+  defaults:
+    _controller: '\Drupal\matrix_bridge\Controller\ChatController::delete'
+  methods: [DELETE]
+  requirements:
+    _permission: 'access content'
+    group_id: '\d+'
+    message_id: '\d+'

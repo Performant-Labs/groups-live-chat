@@ -1,0 +1,27 @@
+<?php
+
+/**
+ * @file
+ * Install/update hooks for matrix_bridge module.
+ */
+
+use Drupal\Core\Field\BaseFieldDefinition;
+
+/**
+ * Add 'changed' and 'deleted' fields to chat_message entity.
+ */
+function matrix_bridge_update_10001() {
+  $entity_type_id = 'chat_message';
+  $manager = \Drupal::entityDefinitionUpdateManager();
+
+  $changed = BaseFieldDefinition::create('changed')
+    ->setLabel(t('Changed'))
+    ->setDescription(t('The time the message was last updated.'));
+  $manager->installFieldStorageDefinition('changed', $entity_type_id, 'matrix_bridge', $changed);
+
+  $deleted = BaseFieldDefinition::create('boolean')
+    ->setLabel(t('Deleted'))
+    ->setDescription(t('Whether this message has been soft-deleted.'))
+    ->setDefaultValue(FALSE);
+  $manager->installFieldStorageDefinition('deleted', $entity_type_id, 'matrix_bridge', $deleted);
+}

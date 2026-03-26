@@ -4,21 +4,34 @@
  * Chat messages fragment — HTMX partial for the message list.
  *
  * Variables:
- *  - messages: Array of message objects with: author, body, time, is_own.
+ *  - messages: Array of message objects with: id, author, body, time, is_own, deleted, edited.
  */
 #}
 {% if messages is empty %}
   <div class="matrix-chat__empty">No messages yet. Start the conversation!</div>
 {% else %}
   {% for msg in messages %}
-    <div class="matrix-chat__message {{ msg.is_own ? 'matrix-chat__message--own' : '' }}">
-      <div class="matrix-chat__bubble">
-        {% if not msg.is_own %}
-          <span class="matrix-chat__author">{{ msg.author }}</span>
-        {% endif %}
-        <span class="matrix-chat__body">{{ msg.body }}</span>
-        <span class="matrix-chat__time">{{ msg.time }}</span>
+    {% if msg.deleted is defined and msg.deleted %}
+      <div class="matrix-chat__message matrix-chat__message--deleted {{ msg.is_own ? 'matrix-chat__message--own' : '' }}"
+           data-message-id="{{ msg.id }}">
+        <div class="matrix-chat__bubble">
+          <span class="matrix-chat__deleted-text">Message deleted</span>
+        </div>
       </div>
-    </div>
+    {% else %}
+      <div class="matrix-chat__message {{ msg.is_own ? 'matrix-chat__message--own' : '' }}"
+           data-message-id="{{ msg.id }}">
+        <div class="matrix-chat__bubble">
+          {% if not msg.is_own %}
+            <span class="matrix-chat__author">{{ msg.author }}</span>
+          {% endif %}
+          <span class="matrix-chat__body">{{ msg.body }}</span>
+          {% if msg.edited is defined and msg.edited %}
+            <span class="matrix-chat__edited">(edited)</span>
+          {% endif %}
+          <span class="matrix-chat__time">{{ msg.time }}</span>
+        </div>
+      </div>
+    {% endif %}
   {% endfor %}
 {% endif %}

@@ -59,9 +59,12 @@ class MatrixBridgeHooks {
   }
 
   /**
-   * Group created → create a Matrix room and store the room ID.
+   * Group created → create a Matrix room, ensure roles, and store the room ID.
    */
   protected function onGroupCreated(GroupInterface $group): void {
+    // Ensure the group type has proper roles/permissions.
+    $this->ensureGroupRoles($group->getGroupType()->id());
+
     try {
       $alias = '_drupal_group_' . $group->id();
       $roomId = $this->matrixClient->createRoom(
@@ -86,7 +89,84 @@ class MatrixBridgeHooks {
   }
 
   /**
-   * Membership granted → ensure Matrix user exists, invite + auto-join.
+   * Ensures group roles exist for a given group type.
+   *
+   * Creates Member, Admin, and Outsider roles with sensible default
+   * permissions if they don't already exist.
+   *
+   * @param string $groupTypeId
+   *   The group type machine name (e.g. 'chat_group').
+   */
+  public function ensureGroupRoles(string $groupTypeId): void {
+    $roleStorage = \Drupal::entityTypeManager()->getStorage('group_role');
+
+    // Member role — can view group and memberships.
+    $memberId = $groupTypeId . '-member';
+    if (!$roleStorage->load($memberId)) {
+      $member = $roleStorage->create([
+        'id' => $memberId,
+        'label' => 'Member',
+        'group_type' => $groupTypeId,
+        'scope' => 'individual',
+        'global_role' => NULL,
+        'admin' => FALSE,
+        'weight' => 0,
+      ]);
+      $member->grantPermissions([
+        'view group',
+        'view group_membership content',
+      ]);
+      $member->save();
+      $this->logger->info('Created group role @role for type @type.', [
+        '@role' => $memberId,
+        '@type' => $groupTypeId,
+      ]);
+    }
+
+    // Admin role — full admin.
+    $adminId = $groupTypeId . '-admin';
+    if (!$roleStorage->load($adminId)) {
+      $admin = $roleStorage->create([
+        'id' => $adminId,
+        'label' => 'Admin',
+        'group_type' => $groupTypeId,
+        'scope' => 'individual',
+        'global_role' => NULL,
+        'admin' => TRUE,
+        'weight' => 1,
+      ]);
+      $admin->save();
+      $this->logger->info('Created group role @role for type @type.', [
+        '@role' => $adminId,
+        '@type' => $groupTypeId,
+      ]);
+    }
+
+    // Outsider role — authenticated users can view published groups.
+    $outsiderId = $groupTypeId . '-outsider';
+    if (!$roleStorage->load($outsiderId)) {
+      $outsider = $roleStorage->create([
+        'id' => $outsiderId,
+        'label' => 'Outsider',
+        'group_type' => $groupTypeId,
+        'scope' => 'outsider',
+        'global_role' => 'authenticated',
+        'admin' => FALSE,
+        'weight' => 0,
+      ]);
+      $outsider->grantPermissions([
+        'view group',
+      ]);
+      $outsider->save();
+      $this->logger->info('Created group role @role for type @type.', [
+        '@role' => $outsiderId,
+        '@type' => $groupTypeId,
+      ]);
+    }
+  }
+
+  /**
+   * Membership granted → auto-assign role, ensure Matrix user, invite.
    */
   protected function onMembershipGranted(GroupRelationshipInterface $relationship): void {
     if (!str_starts_with($relationship->getPluginId(), 'group_membership')) {
@@ -94,13 +174,37 @@ class MatrixBridgeHooks {
     }
 
     $group = $relationship->getGroup();
-    $roomId = $this->matrixClient->getRoomId((int) $group->id());
-    if (!$roomId) {
+    $groupTypeId = $group->getGroupType()->id();
+    $drupalUser = $relationship->getEntity();
+    if (!$drupalUser) {
       return;
     }
 
-    $drupalUser = $relationship->getEntity();
-    if (!$drupalUser) {
+    // Auto-assign group roles — admin role for group owner, member for everyone.
+    $rolesToAdd = [];
+    $memberRoleId = $groupTypeId . '-member';
+    if (\Drupal::entityTypeManager()->getStorage('group_role')->load($memberRoleId)) {
+      $rolesToAdd[] = $memberRoleId;
+    }
+    if ((int) $drupalUser->id() === (int) $group->getOwnerId()) {
+      $adminRoleId = $groupTypeId . '-admin';
+      if (\Drupal::entityTypeManager()->getStorage('group_role')->load($adminRoleId)) {
+        $rolesToAdd[] = $adminRoleId;
+      }
+    }
+    if (!empty($rolesToAdd)) {
+      $rolesField = $relationship->get('group_roles');
+      foreach ($rolesToAdd as $roleId) {
+        $rolesField->appendItem($roleId);
+      }
+      // Save without re-triggering hooks.
+      $relationship->setSyncing(TRUE);
+      $relationship->save();
+    }
+
+    // Matrix room invite.
+    $roomId = $this->matrixClient->getRoomId((int) $group->id());
+    if (!$roomId) {
       return;
     }
 

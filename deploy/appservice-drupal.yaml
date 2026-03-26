@@ -1,0 +1,15 @@
+# Production appservice registration for Conduit
+# Must be registered via Conduit admin room after first launch.
+id: "drupal-chat"
+url: "http://web:8080/matrix/appservice"
+as_token: "a9da5800d0178beeb0837263a0b0c6ceddfb3fc424ed05a79c880c27fb4972e4"
+hs_token: "833fd38bb4f7267978d0010f470754e2d87b385d37eec116366ccf4398e47253"
+sender_localpart: "_drupal_bot"
+namespaces:
+  users:
+    - exclusive: true
+      regex: "@_drupal_.*"
+  aliases:
+    - exclusive: true
+      regex: "#_drupal_.*"
+  rooms: []

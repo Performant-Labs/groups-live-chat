@@ -1,0 +1,65 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: groups-chat-web
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8083:8080"
+    environment:
+      - MYSQL_HOST=db
+      - MYSQL_DATABASE=${MYSQL_DATABASE:-groups_chat}
+      - MYSQL_USER=${MYSQL_USER:-drupal}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - DRUPAL_HASH_SALT=${DRUPAL_HASH_SALT}
+    volumes:
+      - drupal-files:/var/www/html/web/sites/default/files
+      - drupal-private:/var/www/html/private
+      - ./deploy/settings.php:/var/www/html/web/sites/default/settings.php:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - internal
+
+  db:
+    image: mariadb:10.11
+    container_name: groups-chat-db
+    restart: unless-stopped
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE:-groups_chat}
+      - MYSQL_USER=${MYSQL_USER:-drupal}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+    volumes:
+      - db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal
+
+  conduit:
+    image: matrixconduit/matrix-conduit:latest
+    container_name: groups-chat-conduit
+    restart: unless-stopped
+    environment:
+      CONDUIT_CONFIG: /etc/conduit/conduit.toml
+    volumes:
+      - conduit-data:/var/lib/matrix-conduit
+      - ./deploy/conduit.toml:/etc/conduit/conduit.toml:ro
+    networks:
+      - internal
+
+volumes:
+  drupal-files:
+  drupal-private:
+  db-data:
+  conduit-data:
+
+networks:
+  internal:
+    driver: bridge

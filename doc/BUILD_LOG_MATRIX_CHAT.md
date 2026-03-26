@@ -350,9 +350,51 @@ web/modules/custom/matrix_bridge/
 
 ---
 
+## Phase 6 — Group Roles & Permissions
+
+### What Was Done
+
+1. **Auto-role creation** — `ensureGroupRoles()` in `MatrixBridgeHooks.php` creates three group roles (Member, Admin, Outsider) on first group creation per type
+2. **Auto-role assignment** — `onMembershipGranted()` automatically assigns `member` role to all new members and `admin` role to the group owner
+3. **Group visibility** — Groups are now visible in `/admin/group` and accessible by members
+
+### Phase 6 Tests
+
+| Test | Result |
+|---|---|
+| New group type → 0 roles before, 3 after | ✅ |
+| Member role assigned on addMember() | ✅ |
+| Admin role assigned to group owner | ✅ |
+| Admin can view group after role assignment | ✅ |
+
+### Lesson 15: Group Module Requires Explicit Role-Based Permissions
+
+> [!CAUTION]
+> The Drupal Group module's entity access handler **denies all access by default**. Even uid=1 (superadmin) cannot view or access a group unless:
+> 1. Group roles exist for the group type (Member, Admin, Outsider)
+> 2. Those roles grant `view group` permission
+> 3. The user is a group member with one of those roles assigned
+>
+> Setting `uid` and `status` fields via SQL is **not sufficient** — the Group module uses its own access handler that checks group membership + role permissions, not Drupal's standard entity access.
+
+### Lesson 16: `setSyncing(TRUE)` Prevents Hook Re-Entry
+
+> [!TIP]
+> When modifying a `GroupRelationship` entity inside an `entity_insert` hook (e.g., to assign group roles during membership creation), call `$relationship->setSyncing(TRUE)` before `save()`. This prevents the save from re-triggering the same `entity_insert` hook, avoiding an infinite loop.
+
+### Phase 6 File Inventory (changes)
+
+```
+web/modules/custom/matrix_bridge/
+├── src/Hook/MatrixBridgeHooks.php     [MODIFIED — ensureGroupRoles() + auto-assign]
+└── tests/test_auto_role.php           [NEW]
+```
+
+---
+
 ## Summary
 
-All 5 phases complete. The full architecture:
+All 6 phases complete. The full architecture:
 
 ```
 Browser ←→ Drupal (HTMX + long-poll sync) ←→ Conduit Matrix (real-time transport)
@@ -367,4 +409,5 @@ Browser ←→ Drupal (HTMX + long-poll sync) ←→ Conduit Matrix (real-time t
 | Phase 3 — Group Lifecycle Hooks | 4 | ~410 |
 | Phase 4 — HTMX Chat UI | 7 | ~560 |
 | Phase 5 — Real-Time Integration | 1 new + 3 modified | ~200 |
-| **Total** | **~21 files** | **~1,780 lines** |
+| Phase 6 — Group Roles & Permissions | 1 modified + 1 new | ~120 |
+| **Total** | **~22 files** | **~1,900 lines** |

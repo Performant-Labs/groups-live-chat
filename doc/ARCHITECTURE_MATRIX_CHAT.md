@@ -27,8 +27,10 @@ A real-time group chat system built into Drupal 11.3, using the Matrix protocol 
 │  │             id > since → JSON             │   │
 │  ├──────────────────────────────────────────┤   │
 │  │           MatrixBridgeHooks               │   │
-│  │  Group created  → createRoom()            │   │
-│  │  Member added   → inviteUser() + join     │   │
+│  │  Group created  → ensureGroupRoles()      │   │
+│  │                   + createRoom()           │   │
+│  │  Member added   → auto-assign role        │   │
+│  │                   + inviteUser() + join    │   │
 │  │  Member removed → kickUser()              │   │
 │  │  Group deleted  → tombstone message       │   │
 │  ├──────────────────────────────────────────┤   │
@@ -66,6 +68,18 @@ Users are Drupal users. Matrix user IDs (`@_drupal_42:chat.ddev.site`) are synth
 
 Route-level: `_permission: 'access content'` on all chat endpoints. Group membership is managed through Drupal's Group module. Matrix room membership mirrors Drupal group membership via hooks — it doesn't define it.
 
+### 5. Group Roles Are Auto-Managed
+
+The Group module requires explicit role-based permissions for entity access. Without group roles, even admin users cannot see or access groups. The module auto-creates three roles per group type:
+
+| Role | Scope | Permissions |
+|---|---|---|
+| `{type}-member` | Individual (members only) | `view group`, `view group_membership content` |
+| `{type}-admin` | Individual (members only) | Full admin (all permissions) |
+| `{type}-outsider` | Outsider (authenticated non-members) | `view group` |
+
+When a user is added as a group member, they're automatically assigned the `member` role. If they're the group owner, they also get the `admin` role.
+
 ### 4. Matrix Is an Internal Transport
 
 Conduit is only accessible within the Docker network (`conduit:6167`). No port is exposed to the host. The browser cannot reach Conduit. All Matrix operations go through `MatrixClient` inside Drupal.
@@ -77,6 +91,8 @@ Conduit is only accessible within the Docker network (`conduit:6167`). No port i
 | Feature | Status | How |
 |---|---|---|
 | Group → auto-creates chat room | ✅ | `entity_insert` hook → `createRoom()` |
+| Group → auto-creates group roles | ✅ | `ensureGroupRoles()` → Member, Admin, Outsider |
+| Member added → auto-assigned role | ✅ | `onMembershipGranted()` → member role (+ admin for owner) |
 | Member added → joins room | ✅ | `entity_insert` hook → `inviteUser()` |
 | Member removed → kicked from room | ✅ | `entity_delete` hook → `kickUser()` |
 | Send message (browser) | ✅ | HTMX POST → `ChatController::send()` |
@@ -225,7 +241,7 @@ web/modules/custom/matrix_bridge/
 │   │   ├── SyncController.php          # sync() — DB-based long-poll
 │   │   └── AppserviceController.php    # Webhook (hs_token auth, no-op body)
 │   └── Hook/
-│       └── MatrixBridgeHooks.php       # Group lifecycle → Matrix room operations
+│       └── MatrixBridgeHooks.php       # Group lifecycle → Matrix room + role operations
 ├── css/chat.css                        # Dark-mode chat UI
 ├── js/chat.js                          # Long-poll sync + auto-scroll
 ├── templates/
@@ -234,6 +250,7 @@ web/modules/custom/matrix_bridge/
 └── tests/
     ├── full_e2e_test.php               # 19-test comprehensive suite
     ├── multi_user_test.php             # Multi-user conversation proof
+    ├── test_auto_role.php              # Auto role creation + assignment test
     └── phase3_test.php                 # Group lifecycle hook tests
 
 .ddev/

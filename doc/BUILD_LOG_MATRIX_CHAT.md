@@ -392,9 +392,81 @@ web/modules/custom/matrix_bridge/
 
 ---
 
+## Phase 7 — Message Editing & Deletion
+
+### What Was Done
+
+1. **ChatMessage entity update** — added `changed` (auto-updated timestamp) and `deleted` (boolean soft-delete) fields via update hook `matrix_bridge_update_10001`
+2. **ChatController additions** — two new methods:
+   - `edit(group_id, message_id)` — PATCH handler: validates ownership, updates body, sends Matrix `m.replace` event
+   - `delete(group_id, message_id)` — DELETE handler: validates ownership, soft-deletes, sends Matrix redaction
+3. **MatrixClient additions** — two new methods:
+   - `sendEdit()` — sends `m.room.message` with `m.relates_to.rel_type: "m.replace"`
+   - `redactEvent()` — sends room redaction with transaction ID
+4. **Routes** — `PATCH /group/{id}/chat/message/{msg_id}/edit` and `DELETE /group/{id}/chat/message/{msg_id}/delete`
+5. **SyncController upgrade** — mutation-aware sync:
+   - New query: `WHERE id > :since OR (changed > :since_ts AND id <= :since_id)`
+   - Each message returns `type: "new" | "edited" | "deleted"`
+   - Response includes `sync_ts` for timestamp-based mutation tracking
+6. **chat.js rewrite** — full UI for edit/delete:
+   - Hover action buttons (✏️ 🗑️) on own messages
+   - Inline edit mode: replaces body with input + save/cancel buttons
+   - Delete confirmation dialog
+   - `processMessages()` handles three types: append (new), update-in-place (edited), replace with placeholder (deleted)
+7. **CSS additions** (~120 lines) — action buttons, "(edited)" indicator, deleted message placeholder, inline edit form
+8. **Twig template update** — `data-message-id` attributes, deleted/edited rendering
+
+### Phase 7 Tests
+
+| Test | Result |
+|---|---|
+| Entity: create + edit + delete workflow | ✅ (drush php:eval) |
+| `isDeleted()` returns TRUE after `markDeleted()` | ✅ |
+| Body preserved in DB after soft-delete | ✅ |
+| Sync returns JSON with mutation types | ✅ (curl) |
+| Messages endpoint returns bare HTML fragment | ✅ (curl) |
+| Update hook runs on local + production | ✅ |
+
+### Lesson 17: HTMX Fragments Must Return Bare Response Objects
+
+> [!CAUTION]
+> When a Drupal controller returns a render array (e.g. `['#theme' => '...']`), Drupal wraps it in the full page layout (html, head, body, admin toolbar, etc.). This is fine for full pages but **breaks HTMX fragments** — HTMX swaps the entire page HTML into the target `<div>`, causing a "page inception" recursion.
+>
+> **Fix:** Render the template manually and return a `Response` object:
+> ```php
+> $html = \Drupal::service('renderer')->renderRoot($build);
+> return new Response((string) $html, 200, ['Content-Type' => 'text/html']);
+> ```
+
+### Lesson 18: Docker `COPY web/` Wipes `settings.php` on Every Build
+
+> [!CAUTION]
+> The Dockerfile's `COPY web/ web/` replaces the entire `web/sites/default/` directory on every image build. Any `settings.php` created by `drush site:install` inside the container is lost.
+>
+> **Fix:** The entrypoint script generates `settings.php` from environment variables (`MYSQL_DATABASE`, `MYSQL_USER`, `MYSQL_PASSWORD`, `MYSQL_HOST`, `DRUPAL_HASH_SALT`) on every container start. This makes the deployment fully stateless and reproducible.
+
+### Phase 7 File Inventory (additions/changes)
+
+```
+web/modules/custom/matrix_bridge/
+├── matrix_bridge.install                    [NEW — update hook 10001]
+├── css/chat.css                             [MODIFIED — +120 lines edit/delete UI]
+├── js/chat.js                               [REWRITTEN — mutation-aware sync + edit/delete UI]
+├── src/Controller/ChatController.php        [MODIFIED — edit(), delete(), bare Response]
+├── src/Controller/SyncController.php        [MODIFIED — mutation detection]
+├── src/Entity/ChatMessage.php               [MODIFIED — changed, deleted fields]
+├── src/MatrixClient.php                     [MODIFIED — sendEdit(), redactEvent()]
+└── templates/matrix-chat-messages.html.twig [MODIFIED — data-message-id, deleted/edited]
+
+deploy/
+└── entrypoint.sh                            [REWRITTEN — generates settings.php from env]
+```
+
+---
+
 ## Summary
 
-All 6 phases complete. The full architecture:
+All 7 phases complete. The full architecture:
 
 ```
 Browser ←→ Drupal (HTMX + long-poll sync) ←→ Conduit Matrix (real-time transport)
@@ -410,4 +482,5 @@ Browser ←→ Drupal (HTMX + long-poll sync) ←→ Conduit Matrix (real-time t
 | Phase 4 — HTMX Chat UI | 7 | ~560 |
 | Phase 5 — Real-Time Integration | 1 new + 3 modified | ~200 |
 | Phase 6 — Group Roles & Permissions | 1 modified + 1 new | ~120 |
-| **Total** | **~22 files** | **~1,900 lines** |
+| Phase 7 — Message Editing & Deletion | 1 new + 7 modified | ~900 |
+| **Total** | **~25 files** | **~2,800 lines** |

@@ -137,13 +137,60 @@ These issues were encountered during this build:
     └── appservice-drupal.yaml       # Appservice registration YAML
 ```
 
+## Phase 2 — MatrixClient + ChatMessage Entity
+
+### What Was Done
+
+1. **Created `matrix_bridge` module** — `web/modules/custom/matrix_bridge/`
+2. **MatrixClient service** (`src/MatrixClient.php`) — Guzzle wrapper with 7 methods:
+   - `ensureUserExists(uid)` — registers `@_drupal_{uid}:server` via appservice
+   - `createRoom(name, alias)` — creates room masquerading as bot
+   - `inviteUser(roomId, userId)` — invite + auto-join (appservice users are Drupal-controlled)
+   - `joinRoom(roomId, userId)` — explicit join (used internally by inviteUser)
+   - `kickUser(roomId, userId)` / `banUser(roomId, userId)` — room management
+   - `sendMessage(roomId, userId, body)` — sends m.room.message masquerading as user
+3. **ChatMessage entity** (`src/Entity/ChatMessage.php`) — fields: uid, group_id, matrix_event_id, matrix_room_id, body, created
+4. **Config** — settings.yml with homeserver URL, tokens; config schema for validation
+
+### Phase 2 Tests
+
+| Test | Result |
+|---|---|
+| T1 `ensureUserExists` | ✅ `@_drupal_2:chat.ddev.site` |
+| T2 `createRoom` | ✅ Room ID returned |
+| T3 `invite+join` | ✅ OK |
+| T4 `sendMessage` | ✅ Event ID returned |
+| T5 `ChatMessage save` | ✅ id=1 |
+| T6 `ChatMessage load` | ✅ body + event_id match |
+
+### Lesson 8: Conduit Requires `?user_id=` Masquerade for All Non-Register Calls
+
+> [!IMPORTANT]
+> Conduit rejects API calls that use only the `as_token` without a `?user_id=` query param (returns `M_FORBIDDEN: User does not exist`). Every room management call must masquerade as a real registered user — typically the bot user `@_drupal_bot:server`.
+
+The bot user is auto-registered on first room operation via `ensureBotExists()` (cached per request).
+
+### Lesson 9: Matrix Requires Explicit Join After Invite
+
+Inviting a user to a room is not enough — they must also **join** (`POST /rooms/{id}/join`). Since all `@_drupal_*` users are appservice-controlled, `inviteUser()` auto-joins on their behalf.
+
+### Phase 2 File Inventory
+
+```
+web/modules/custom/matrix_bridge/
+├── matrix_bridge.info.yml
+├── matrix_bridge.services.yml
+├── config/
+│   ├── install/matrix_bridge.settings.yml
+│   └── schema/matrix_bridge.schema.yml
+└── src/
+    ├── MatrixClient.php
+    └── Entity/ChatMessage.php
+```
+
 ---
 
-## Next Steps — Phase 2
+## Next Steps — Phase 3
 
-Create `web/modules/custom/matrix_bridge/` with:
-- `MatrixClient` service — Guzzle wrapper for Matrix Client-Server API with `as_token` masquerading
-- `ChatMessage` entity — lightweight content entity (`id, uuid, uid, group_id, matrix_event_id, body, created`)
-- Module scaffolding (`info.yml`, `services.yml`, `config/install/`)
+Group lifecycle hooks: create rooms on group creation, invite/kick on membership changes.
 
-See [Implementation Plan](../doc/../../../.gemini/antigravity/brain/e0b92a72-1aeb-4c8a-83cc-4aeedaf73dd8/implementation_plan.md) for full details.

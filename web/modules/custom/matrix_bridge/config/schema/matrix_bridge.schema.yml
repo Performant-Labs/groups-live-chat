@@ -1,0 +1,19 @@
+matrix_bridge.settings:
+  type: config_object
+  label: 'Matrix Bridge settings'
+  mapping:
+    homeserver_url:
+      type: string
+      label: 'Homeserver URL'
+    server_name:
+      type: string
+      label: 'Server name'
+    as_token:
+      type: string
+      label: 'Application service token'
+    hs_token:
+      type: string
+      label: 'Homeserver token'
+    bot_localpart:
+      type: string
+      label: 'Bot user localpart'

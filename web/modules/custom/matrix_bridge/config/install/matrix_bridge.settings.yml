@@ -1,0 +1,8 @@
+# Default configuration for matrix_bridge module.
+# These values are for local DDEV development with Conduit.
+# Override in settings.php or config sync for production.
+homeserver_url: 'http://conduit:6167'
+server_name: 'chat.ddev.site'
+as_token: 'a9da5800d0178beeb0837263a0b0c6ceddfb3fc424ed05a79c880c27fb4972e4'
+hs_token: '833fd38bb4f7267978d0010f470754e2d87b385d37eec116366ccf4398e47253'
+bot_localpart: '_drupal_bot'

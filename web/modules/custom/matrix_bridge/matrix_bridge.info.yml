@@ -1,0 +1,7 @@
+name: 'Matrix Bridge'
+type: module
+description: 'Bridges Drupal groups to Matrix rooms for real-time chat via Conduit/Synapse homeserver.'
+core_version_requirement: ^11
+package: 'Chat'
+dependencies:
+  - drupal:user

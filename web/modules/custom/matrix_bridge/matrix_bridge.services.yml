@@ -1,0 +1,7 @@
+services:
+  matrix_bridge.client:
+    class: Drupal\matrix_bridge\MatrixClient
+    arguments:
+      - '@http_client'
+      - '@config.factory'
+      - '@logger.factory'

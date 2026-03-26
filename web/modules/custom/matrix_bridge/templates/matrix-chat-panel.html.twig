@@ -23,7 +23,7 @@
   <div class="matrix-chat__messages"
        id="matrix-chat-messages-{{ group_id }}"
        hx-get="{{ path('matrix_bridge.chat_messages', {'group_id': group_id}) }}"
-       hx-trigger="load, every 5s"
+       hx-trigger="load"
        hx-swap="innerHTML">
     <div class="matrix-chat__loading">Loading messages…</div>
   </div>

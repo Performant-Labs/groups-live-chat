@@ -37,3 +37,11 @@ matrix_bridge.chat_send:
     _permission: 'access content'
     group_id: '\d+'
 
+# Sync proxy: long-polls Conduit /sync and returns new messages as JSON.
+matrix_bridge.chat_sync:
+  path: '/group/{group_id}/chat/sync'
+  defaults:
+    _controller: '\Drupal\matrix_bridge\Controller\SyncController::sync'
+  requirements:
+    _permission: 'access content'
+    group_id: '\d+'

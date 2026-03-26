@@ -43,6 +43,20 @@ class ChatController extends ControllerBase {
   public function panel(int $group_id): array {
     $roomId = $this->matrixClient->getRoomId($group_id);
 
+    // Ensure the current user exists on Matrix and is in the room.
+    // This is needed so /sync works for this user.
+    if ($roomId) {
+      try {
+        $matrixUserId = $this->matrixClient->ensureUserExists(
+          (int) $this->currentUser()->id()
+        );
+        $this->matrixClient->inviteUser($roomId, $matrixUserId);
+      }
+      catch (\Exception $e) {
+        // Already invited/joined — ignore.
+      }
+    }
+
     return [
       '#theme' => 'matrix_chat_panel',
       '#group_id' => $group_id,

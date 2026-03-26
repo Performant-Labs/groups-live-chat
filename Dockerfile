@@ -15,7 +15,6 @@ RUN composer install --no-dev --optimize-autoloader --no-interaction
 
 # Copy application code
 COPY web/ web/
-COPY config/ config/
 
 # Fix permissions
 RUN chown -R www-data:www-data web/sites/default/files 2>/dev/null || true \

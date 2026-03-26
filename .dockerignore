@@ -1,0 +1,9 @@
+.git
+.ddev
+.env
+.env.example
+deploy/
+doc/
+node_modules/
+vendor/
+*.md

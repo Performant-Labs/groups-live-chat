@@ -82,7 +82,7 @@ class ChatController extends ControllerBase {
    * @return array
    *   Render array for just the messages.
    */
-  public function messages(int $group_id): array {
+  public function messages(int $group_id): Response {
     $messages = $this->entityTypeManager()
       ->getStorage('chat_message')
       ->loadByProperties(['group_id' => $group_id]);
@@ -106,11 +106,14 @@ class ChatController extends ControllerBase {
       ];
     }
 
-    return [
+    $build = [
       '#theme' => 'matrix_chat_messages',
       '#messages' => $items,
       '#cache' => ['max-age' => 0],
     ];
+
+    $html = \Drupal::service('renderer')->renderRoot($build);
+    return new Response((string) $html, 200, ['Content-Type' => 'text/html']);
   }
 
   /**
@@ -124,10 +127,10 @@ class ChatController extends ControllerBase {
    * @param \Symfony\Component\HttpFoundation\Request $request
    *   The request containing the message body.
    *
-   * @return array
-   *   Render array for the updated message list.
+   * @return \Symfony\Component\HttpFoundation\Response
+   *   Rendered HTML fragment for the updated message list.
    */
-  public function send(int $group_id, Request $request): array {
+  public function send(int $group_id, Request $request): Response {
     $body = trim($request->request->get('message', ''));
     if (empty($body)) {
       return $this->messages($group_id);

@@ -188,9 +188,67 @@ web/modules/custom/matrix_bridge/
     └── Entity/ChatMessage.php
 ```
 
+## Phase 3 — Group Lifecycle Hooks
+
+### What Was Done
+
+1. **MatrixBridgeHooks** (`src/Hook/MatrixBridgeHooks.php`) — D11 `#[Hook]` attribute hooks:
+   - `entity_insert(Group)` → `createRoom()` + store room_id in `key_value`
+   - `entity_insert(GroupRelationship)` → `ensureUserExists()` + `inviteUser()` (auto-join)
+   - `entity_delete(GroupRelationship)` → `kickUser()`
+   - `entity_delete(Group)` → tombstone message to Matrix room
+2. **AppserviceController** (`src/Controller/AppserviceController.php`) — webhook endpoint:
+   - Route: `PUT /matrix/appservice/transactions/{txnId}`
+   - `hs_token` validated via timing-safe `hash_equals()`
+   - Returns `{}` per Matrix appservice spec
+3. **MatrixClient additions** — `getRoomId()`/`setRoomId()` using Drupal `key_value` store
+
+### Phase 3 Tests
+
+| Test | Result |
+|---|---|
+| T1 Group created → room auto-created | ✅ Room ID stored |
+| T2 Member added → invite + join | ✅ |
+| T3 Member can send to room | ✅ Event ID returned |
+| T4 Member removed → kick | ✅ |
+| T5 Kicked user blocked | ✅ `M_FORBIDDEN` |
+| Webhook valid `hs_token` | ✅ 200 |
+| Webhook invalid token | ✅ 403 |
+
+### Lesson 10: Group Is a Content Entity — No `getThirdPartySetting()`
+
+> [!CAUTION]
+> `getThirdPartySetting()` only exists on **config entities** (implementing `ThirdPartySettingsInterface`). The Group module's `Group` entity is a **content entity**. Attempting to call it throws a fatal error.
+
+**Solution:** Use Drupal's `key_value` store (`\Drupal::keyValue('matrix_bridge.rooms')`) for the group→room mapping.
+
+### Lesson 11: D11 `#[Hook]` Auto-Discovery Needs Autowire Aliases
+
+> [!IMPORTANT]
+> Drupal 11's `#[Hook]` attribute scanner auto-discovers hook classes and attempts autowiring independently of `services.yml`. If a hook class type-hints a custom service class (like `MatrixClient`), the DI container errors out unless you provide an autowire alias:
+
+```yaml
+Drupal\matrix_bridge\MatrixClient:
+  alias: matrix_bridge.client
+```
+
+### Lesson 12: `ControllerBase::$configFactory` Property Conflict
+
+`ControllerBase` declares `$configFactory` without a type in PHP. If your subclass uses constructor promotion with a typed `$configFactory`, PHP throws a fatal error. Use `$this->config()` from `ControllerBase` instead.
+
+### Phase 3 File Inventory (additions)
+
+```
+web/modules/custom/matrix_bridge/
+├── matrix_bridge.routing.yml              [NEW]
+├── src/
+│   ├── Controller/AppserviceController.php [NEW]
+│   └── Hook/MatrixBridgeHooks.php         [NEW]
+└── tests/phase3_test.php                  [NEW]
+```
+
 ---
 
-## Next Steps — Phase 3
+## Next Steps — Phase 4
 
-Group lifecycle hooks: create rooms on group creation, invite/kick on membership changes.
-
+HTMX Chat UI: ChatController, routes, Twig templates for the chat panel.

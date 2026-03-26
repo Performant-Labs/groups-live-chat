@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\matrix_bridge;
 
 use Drupal\Core\Config\ConfigFactoryInterface;
+use Drupal\Core\KeyValueStore\KeyValueFactoryInterface;
 use Drupal\Core\Logger\LoggerChannelFactoryInterface;
 use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Exception\RequestException;
@@ -63,6 +64,7 @@ class MatrixClient {
     protected ClientInterface $httpClient,
     ConfigFactoryInterface $configFactory,
     LoggerChannelFactoryInterface $loggerFactory,
+    protected KeyValueFactoryInterface $keyValueFactory,
   ) {
     $config = $configFactory->get('matrix_bridge.settings');
     $this->homeserverUrl = rtrim($config->get('homeserver_url') ?? '', '/');
@@ -236,6 +238,31 @@ class MatrixClient {
    */
   public function getMatrixUserId(int $drupalUid): string {
     return "@_drupal_{$drupalUid}:{$this->serverName}";
+  }
+
+  /**
+   * Stores the Matrix room ID for a Drupal group.
+   *
+   * @param int $groupId
+   *   The Drupal group entity ID.
+   * @param string $roomId
+   *   The Matrix room ID.
+   */
+  public function setRoomId(int $groupId, string $roomId): void {
+    $this->keyValueFactory->get('matrix_bridge.rooms')->set((string) $groupId, $roomId);
+  }
+
+  /**
+   * Gets the Matrix room ID for a Drupal group.
+   *
+   * @param int $groupId
+   *   The Drupal group entity ID.
+   *
+   * @return string|null
+   *   The Matrix room ID, or NULL if no room exists.
+   */
+  public function getRoomId(int $groupId): ?string {
+    return $this->keyValueFactory->get('matrix_bridge.rooms')->get((string) $groupId);
   }
 
   /**

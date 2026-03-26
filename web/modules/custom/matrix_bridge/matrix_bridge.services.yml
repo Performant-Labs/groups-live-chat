@@ -5,3 +5,8 @@ services:
       - '@http_client'
       - '@config.factory'
       - '@logger.factory'
+      - '@keyvalue'
+
+  # Autowire alias: allows #[Hook] classes to type-hint MatrixClient.
+  Drupal\matrix_bridge\MatrixClient:
+    alias: matrix_bridge.client

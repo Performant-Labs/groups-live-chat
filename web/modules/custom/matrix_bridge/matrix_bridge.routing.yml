@@ -1,0 +1,9 @@
+# Appservice webhook: receives transaction pushes from Conduit/Synapse.
+matrix_bridge.appservice_transactions:
+  path: '/matrix/appservice/transactions/{txnId}'
+  defaults:
+    _controller: '\Drupal\matrix_bridge\Controller\AppserviceController::handleTransaction'
+  methods: [PUT]
+  requirements:
+    _custom_access: '\Drupal\matrix_bridge\Controller\AppserviceController::access'
+    txnId: '.+'

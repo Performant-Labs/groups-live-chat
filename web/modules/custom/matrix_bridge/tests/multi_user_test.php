@@ -48,6 +48,7 @@ echo "  Bob:   uid={$bob->id()} ({$bob->getDisplayName()})\n\n";
 $group = \Drupal\group\Entity\Group::create([
   'type' => 'chat_group',
   'label' => 'Multi-User Test ' . time(),
+  'uid' => 1,
 ]);
 $group->save();
 $roomId = $client->getRoomId((int) $group->id());

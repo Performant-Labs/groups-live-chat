@@ -126,7 +126,9 @@ $type = $groupTypeStorage->load('chat_group');
 if (!$type) {
   $type = $groupTypeStorage->create(['id' => 'chat_group', 'label' => 'Chat Group']);
   $type->save();
-  $relTypeStorage = \Drupal::entityTypeManager()->getStorage('group_relationship_type');
+}
+$relTypeStorage = \Drupal::entityTypeManager()->getStorage('group_relationship_type');
+if (!$relTypeStorage->load('chat_group-group_membership')) {
   $relTypeStorage->createFromPlugin($type, 'group_membership')->save();
 }
 
@@ -134,6 +136,7 @@ if (!$type) {
 $group = \Drupal\group\Entity\Group::create([
   'type' => 'chat_group',
   'label' => 'E2E Test Group ' . time(),
+  'uid' => 1,
 ]);
 $group->save();
 $groupRoomId = $client->getRoomId((int) $group->id());
